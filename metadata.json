@@ -1,0 +1,5 @@
+{
+  "name": "Recipe Calorie Estimator",
+  "description": "An application that uses AI to analyze a picture of food, identify the dish, and estimate its total calorie count.",
+  "requestFramePermissions": []
+}
