@@ -1,14 +1,34 @@
 import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export const Header: React.FC = () => {
   return (
-    <header className="text-center my-8 md:my-12">
-      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-500">
-        Recipe Calorie Estimator
-      </h1>
-      <p className="mt-4 text-lg text-slate-400">
+    <View style={styles.container}>
+      <Text style={styles.title}>Recipe Calorie Estimator</Text>
+      <Text style={styles.subtitle}>
         Upload a picture of your meal and let AI do the counting!
-      </p>
-    </header>
+      </Text>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginVertical: 32,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#22d3ee',
+    marginBottom: 16,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+});

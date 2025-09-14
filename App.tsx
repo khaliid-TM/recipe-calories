@@ -1,4 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatusBar } from 'expo-status-bar';
 import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
 import { CalorieDisplay } from './components/CalorieDisplay';
@@ -10,39 +13,39 @@ import type { RecipeData, Ingredient } from './types';
 import { getRecipeFromImage } from './services/geminiService';
 
 const App: React.FC = () => {
-  const [image, setImage] = useState<{ base64: string; mimeType: string; } | null>(null);
+  const [image, setImage] = useState<{ uri: string; base64: string; mimeType: string; } | null>(null);
   const [recipeData, setRecipeData] = useState<RecipeData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<RecipeData[]>([]);
-  const [uploaderKey, setUploaderKey] = useState(Date.now());
 
   useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const loadHistory = async () => {
     try {
-      const storedHistory = localStorage.getItem('recipeHistory');
+      const storedHistory = await AsyncStorage.getItem('recipeHistory');
       if (storedHistory) {
         setHistory(JSON.parse(storedHistory));
       }
     } catch (err) {
-      console.error("Failed to parse history from localStorage:", err);
-      localStorage.removeItem('recipeHistory');
+      console.error("Failed to load history from AsyncStorage:", err);
     }
-  }, []);
+  };
 
-  const handleImageUpload = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const [header, base64] = result.split(',');
-      const mimeType = header.match(/:(.*?);/)?.[1] || 'application/octet-stream';
-      setImage({ base64, mimeType });
-      setRecipeData(null);
-      setError(null);
-    };
-    reader.onerror = () => {
-      setError("Failed to read the image file.");
-    };
-    reader.readAsDataURL(file);
+  const saveHistory = async (newHistory: RecipeData[]) => {
+    try {
+      await AsyncStorage.setItem('recipeHistory', JSON.stringify(newHistory));
+    } catch (err) {
+      console.error("Failed to save history to AsyncStorage:", err);
+    }
+  };
+
+  const handleImageUpload = useCallback((imageData: { uri: string; base64: string; mimeType: string; }) => {
+    setImage(imageData);
+    setRecipeData(null);
+    setError(null);
   }, []);
 
   const handleAnalyzeClick = async () => {
@@ -59,15 +62,9 @@ const App: React.FC = () => {
       const data = await getRecipeFromImage(image.base64, image.mimeType);
       setRecipeData(data);
 
-      setHistory(prevHistory => {
-        const newHistory = [data, ...prevHistory].slice(0, 5);
-        try {
-          localStorage.setItem('recipeHistory', JSON.stringify(newHistory));
-        } catch (err) {
-            console.error("Failed to save history to localStorage:", err);
-        }
-        return newHistory;
-      });
+      const newHistory = [data, ...history].slice(0, 5);
+      setHistory(newHistory);
+      await saveHistory(newHistory);
 
     } catch (err) {
       console.error(err);
@@ -81,7 +78,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateIngredients = (updatedIngredients: Ingredient[]) => {
+  const handleUpdateIngredients = async (updatedIngredients: Ingredient[]) => {
     if (!recipeData) return;
 
     const newTotalCalories = updatedIngredients.reduce((sum, ing) => sum + ing.calories, 0);
@@ -100,16 +97,9 @@ const App: React.FC = () => {
     
     setRecipeData(updatedRecipe);
     
-    // Treat edited recipe as a new history entry
-    setHistory(prevHistory => {
-      const newHistory = [updatedRecipe, ...prevHistory].slice(0, 5);
-      try {
-        localStorage.setItem('recipeHistory', JSON.stringify(newHistory));
-      } catch (err) {
-          console.error("Failed to save history to localStorage:", err);
-      }
-      return newHistory;
-    });
+    const newHistory = [updatedRecipe, ...history].slice(0, 5);
+    setHistory(newHistory);
+    await saveHistory(newHistory);
   };
 
   const handleClear = () => {
@@ -117,15 +107,14 @@ const App: React.FC = () => {
     setRecipeData(null);
     setError(null);
     setIsLoading(false);
-    setUploaderKey(Date.now());
-  }
+  };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
     setHistory([]);
     try {
-        localStorage.removeItem('recipeHistory');
+      await AsyncStorage.removeItem('recipeHistory');
     } catch (err) {
-        console.error("Failed to clear history from localStorage:", err);
+      console.error("Failed to clear history from AsyncStorage:", err);
     }
   };
 
@@ -134,20 +123,25 @@ const App: React.FC = () => {
     setImage(null);
     setError(null);
     setIsLoading(false);
-    setUploaderKey(Date.now()); // Reset the uploader component
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans">
-      <Header />
-      <main className="w-full max-w-4xl mx-auto flex flex-col items-center gap-8">
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Header />
+        
         <ImageUploader 
-          key={uploaderKey}
           onImageUpload={handleImageUpload}
           onAnalyze={handleAnalyzeClick}
           onClear={handleClear}
           hasImage={!!image}
           isLoading={isLoading}
+          imageUri={image?.uri}
         />
 
         {isLoading && <Spinner />}
@@ -160,18 +154,45 @@ const App: React.FC = () => {
         {!isLoading && !error && !recipeData && <WelcomeMessage />}
 
         {!isLoading && !error && (
-            <HistoryDisplay 
-              history={history} 
-              onClearHistory={handleClearHistory}
-              onSelectHistoryItem={handleSelectHistoryItem}
-            />
+          <HistoryDisplay 
+            history={history} 
+            onClearHistory={handleClearHistory}
+            onSelectHistoryItem={handleSelectHistoryItem}
+          />
         )}
-      </main>
-      <footer className="text-center text-slate-500 mt-12 text-sm">
-        <p>&copy; 2024 Calorie Estimator. Powered by Google Gemini.</p>
-      </footer>
-    </div>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            © 2024 Calorie Estimator. Powered by Google Gemini.
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 30,
+  },
+  footer: {
+    marginTop: 48,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#64748b',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+});
 
 export default App;

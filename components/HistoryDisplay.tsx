@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import type { RecipeData } from '../types';
 
 interface HistoryDisplayProps {
@@ -13,44 +14,92 @@ export const HistoryDisplay: React.FC<HistoryDisplayProps> = ({ history, onClear
   }
 
   return (
-    <div className="w-full max-w-xl bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mt-4 animate-fade-in">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold text-slate-200">Recent Analyses</h2>
-        <button
-          onClick={onClearHistory}
-          className="text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded-md transition-colors"
-          aria-label="Clear recipe history"
-        >
-          Clear History
-        </button>
-      </div>
-      <div className="space-y-3">
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Recent Analyses</Text>
+        <TouchableOpacity style={styles.clearButton} onPress={onClearHistory}>
+          <Text style={styles.clearButtonText}>Clear History</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <ScrollView style={styles.historyList} nestedScrollEnabled>
         {history.map((item, index) => (
-          <div 
+          <TouchableOpacity 
             key={index} 
-            className="bg-slate-800 rounded-lg p-3 shadow-md flex justify-between items-center cursor-pointer transition-all duration-200 hover:bg-slate-700 hover:scale-105"
-            onClick={() => onSelectHistoryItem(item)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelectHistoryItem(item)}
-            aria-label={`View details for ${item.recipeName}`}
+            style={styles.historyItem}
+            onPress={() => onSelectHistoryItem(item)}
           >
-            <h3 className="text-md font-semibold text-teal-400 truncate pr-4">{item.recipeName}</h3>
-            <p className="text-slate-400 text-right shrink-0 ml-4">
-              <span className="font-bold text-white text-lg">{item.totalCalories}</span> kcal
-            </p>
-          </div>
+            <Text style={styles.recipeName} numberOfLines={1}>{item.recipeName}</Text>
+            <View style={styles.calorieInfo}>
+              <Text style={styles.calorieValue}>{item.totalCalories}</Text>
+              <Text style={styles.calorieUnit}>kcal</Text>
+            </View>
+          </TouchableOpacity>
         ))}
-      </div>
-       <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out forwards;
-        }
-      `}</style>
-    </div>
+      </ScrollView>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#374151',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#cbd5e1',
+  },
+  clearButton: {
+    backgroundColor: '#374151',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  clearButtonText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+  },
+  historyList: {
+    maxHeight: 200,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  recipeName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#22d3ee',
+    flex: 1,
+    marginRight: 16,
+  },
+  calorieInfo: {
+    alignItems: 'flex-end',
+  },
+  calorieValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  calorieUnit: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+});

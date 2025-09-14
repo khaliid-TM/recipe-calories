@@ -1,26 +1,72 @@
 import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 
 export const WelcomeMessage: React.FC = () => {
     return (
-        <div className="w-full max-w-xl text-center bg-slate-800/50 border border-slate-700 rounded-2xl p-8 mt-4">
-            <h2 className="text-2xl font-bold text-slate-200 mb-3">How it works</h2>
-            <div className="text-left text-slate-400 space-y-3">
-                <p className="flex items-start">
-                    <span className="text-cyan-400 font-bold mr-3">1.</span>
-                    <span>Upload a clear picture of a single dish.</span>
-                </p>
-                <p className="flex items-start">
-                    <span className="text-cyan-400 font-bold mr-3">2.</span>
-                    <span>Click the "Estimate Calories" button.</span>
-                </p>
-                <p className="flex items-start">
-                    <span className="text-cyan-400 font-bold mr-3">3.</span>
-                    <span>Our AI will analyze the food and provide an estimated calorie count along with key ingredients.</span>
-                </p>
-            </div>
-            <p className="text-xs text-slate-500 mt-6">
+        <View style={styles.container}>
+            <Text style={styles.title}>How it works</Text>
+            <View style={styles.stepContainer}>
+                <View style={styles.step}>
+                    <Text style={styles.stepNumber}>1.</Text>
+                    <Text style={styles.stepText}>Upload a clear picture of a single dish.</Text>
+                </View>
+                <View style={styles.step}>
+                    <Text style={styles.stepNumber}>2.</Text>
+                    <Text style={styles.stepText}>Tap the "Estimate Calories" button.</Text>
+                </View>
+                <View style={styles.step}>
+                    <Text style={styles.stepNumber}>3.</Text>
+                    <Text style={styles.stepText}>Our AI will analyze the food and provide an estimated calorie count along with key ingredients.</Text>
+                </View>
+            </View>
+            <Text style={styles.disclaimer}>
                 Please note: The calorie count is an AI-generated estimate and should be used for informational purposes only.
-            </p>
-        </div>
+            </Text>
+        </View>
     );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        backgroundColor: '#1e293b',
+        borderWidth: 1,
+        borderColor: '#374151',
+        borderRadius: 16,
+        padding: 24,
+        marginBottom: 24,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#cbd5e1',
+        textAlign: 'center',
+        marginBottom: 16,
+    },
+    stepContainer: {
+        marginBottom: 16,
+    },
+    step: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 12,
+    },
+    stepNumber: {
+        color: '#22d3ee',
+        fontWeight: 'bold',
+        fontSize: 16,
+        marginRight: 12,
+        minWidth: 20,
+    },
+    stepText: {
+        color: '#94a3b8',
+        fontSize: 16,
+        lineHeight: 24,
+        flex: 1,
+    },
+    disclaimer: {
+        fontSize: 12,
+        color: '#64748b',
+        textAlign: 'center',
+        fontStyle: 'italic',
+    },
+});

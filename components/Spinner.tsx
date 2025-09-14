@@ -1,10 +1,24 @@
 import React from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
 export const Spinner: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center space-y-4 my-8">
-      <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-cyan-400"></div>
-      <p className="text-slate-400">AI is analyzing your image...</p>
-    </div>
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color="#22d3ee" />
+      <Text style={styles.text}>AI is analyzing your image...</Text>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  text: {
+    color: '#94a3b8',
+    fontSize: 16,
+    marginTop: 16,
+  },
+});

@@ -1,11 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { RecipeData, Ingredient } from '../types';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
+// For React Native, we'll use a different approach to get the API key
+const API_KEY = 'AIzaSyD_PneMgdFGtGcdb6uJc81y8Xv3NqBIUkk'; // You should move this to a secure config
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const INGREDIENT_SCHEMA = {
   type: Type.OBJECT,
@@ -37,7 +36,6 @@ const INGREDIENT_SCHEMA = {
   },
   required: ["name", "quantity", "calories", "protein", "carbs", "fats"],
 };
-
 
 const RECIPE_SCHEMA = {
   type: Type.OBJECT,

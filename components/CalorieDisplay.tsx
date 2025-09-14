@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import type { RecipeData, Ingredient } from '../types';
 import { getNutritionForIngredient } from '../services/geminiService';
-import { COMMON_INGREDIENTS } from '../constants/ingredients';
 
 interface CalorieDisplayProps {
   data: RecipeData;
@@ -22,95 +22,42 @@ export const CalorieDisplay: React.FC<CalorieDisplayProps> = ({ data, onUpdateIn
   const [editedIngredients, setEditedIngredients] = useState<Ingredient[]>([]);
   const [newIngredient, setNewIngredient] = useState<Ingredient>(initialNewIngredientState);
   const [isAnalyzingIngredient, setIsAnalyzingIngredient] = useState(false);
-  const [ingredientError, setIngredientError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  // State for inline quantity editing
-  const [editingQuantityIndex, setEditingQuantityIndex] = useState<number | null>(null);
-  const [newQuantityValue, setNewQuantityValue] = useState('');
-  const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
 
   useEffect(() => {
     setEditedIngredients([...data.ingredients]);
     setIsEditing(false);
-    setEditingQuantityIndex(null);
   }, [data]);
   
   const handleRemoveIngredient = (indexToRemove: number) => {
     setEditedIngredients(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleNewIngredientNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewIngredient(prev => ({
-      ...prev,
-      [name]: Number(value) || 0,
-    }));
-  };
-  
-  const handleNewIngredientTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewIngredient(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setNewIngredient(prev => ({ ...prev, name: value }));
-
-    if (value.length > 1) {
-      const filteredSuggestions = COMMON_INGREDIENTS.filter(item =>
-        item.toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 5); // Show up to 5 suggestions
-      setSuggestions(filteredSuggestions);
-      setShowSuggestions(filteredSuggestions.length > 0);
-    } else {
-      setShowSuggestions(false);
-    }
-  };
-
-  const handleSuggestionClick = (suggestion: string) => {
-    setNewIngredient(prev => ({ ...prev, name: suggestion }));
-    setShowSuggestions(false);
-  };
-
   const handleAnalyzeIngredient = async () => {
     const { name, quantity } = newIngredient;
     if (name.trim() === '' || quantity.trim() === '') {
-        setIngredientError("Please enter both a quantity and an ingredient name.");
+        Alert.alert('Error', 'Please enter both a quantity and an ingredient name.');
         return;
     }
     const query = `${quantity} ${name}`;
 
-    setShowSuggestions(false);
     setIsAnalyzingIngredient(true);
-    setIngredientError(null);
     try {
         const nutritionData = await getNutritionForIngredient(query);
         setNewIngredient(nutritionData);
     } catch (err) {
-        if(err instanceof Error) {
-            setIngredientError(err.message);
-        } else {
-            setIngredientError("An unknown error occurred.");
-        }
+        Alert.alert('Error', err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
         setIsAnalyzingIngredient(false);
     }
   };
 
-  const handleAddIngredient = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddIngredient = () => {
     if (newIngredient.name.trim() === '' || newIngredient.quantity.trim() === '' || newIngredient.calories <= 0) {
-      setIngredientError("Please analyze an ingredient with a quantity before adding.");
+      Alert.alert('Error', 'Please analyze an ingredient with a quantity before adding.');
       return;
-    };
+    }
     setEditedIngredients(prev => [...prev, newIngredient]);
     setNewIngredient(initialNewIngredientState);
-    setIngredientError(null);
   };
 
   const handleSaveChanges = () => {
@@ -119,259 +66,381 @@ export const CalorieDisplay: React.FC<CalorieDisplayProps> = ({ data, onUpdateIn
   };
 
   const handleCancel = () => {
-    setEditedIngredients([...data.ingredients]); // Revert changes
+    setEditedIngredients([...data.ingredients]);
     setIsEditing(false);
-    setIngredientError(null);
     setNewIngredient(initialNewIngredientState);
-    setShowSuggestions(false);
-    setEditingQuantityIndex(null);
   };
-
-  const handleEditQuantityClick = (index: number) => {
-    setEditingQuantityIndex(index);
-    setNewQuantityValue(editedIngredients[index].quantity);
-  };
-
-  const handleCancelEditQuantity = () => {
-    setEditingQuantityIndex(null);
-    setNewQuantityValue('');
-  };
-
-  const handleUpdateQuantity = async (indexToUpdate: number) => {
-    const ingredientToUpdate = editedIngredients[indexToUpdate];
-    if (!ingredientToUpdate || newQuantityValue.trim() === '') return;
-
-    const query = `${newQuantityValue} ${ingredientToUpdate.name}`;
-    setIsUpdatingQuantity(true);
-    setIngredientError(null);
-
-    try {
-        const updatedNutrition = await getNutritionForIngredient(query);
-        const newIngredients = [...editedIngredients];
-        newIngredients[indexToUpdate] = updatedNutrition;
-        setEditedIngredients(newIngredients);
-        setEditingQuantityIndex(null);
-        setNewQuantityValue('');
-    } catch (err) {
-        if (err instanceof Error) {
-            setIngredientError(`Failed to update quantity: ${err.message}`);
-        } else {
-            setIngredientError("An unknown error occurred while updating quantity.");
-        }
-    } finally {
-        setIsUpdatingQuantity(false);
-    }
-  };
-
 
   const displayIngredients = isEditing ? editedIngredients : data.ingredients;
 
   return (
-    <div className="w-full max-w-xl bg-slate-800 rounded-2xl shadow-xl p-6 sm:p-8 animate-fade-in">
-      <h2 className="text-3xl font-bold text-center text-teal-300 mb-2">
-        {data.recipeName}
-      </h2>
-      <div className="text-center my-6">
-        <p className="text-slate-400 text-lg">Estimated Calories</p>
-        <p className="text-7xl font-extrabold text-white tracking-tight">
-          {data.totalCalories}
-        </p>
-        <p className="text-slate-400 text-lg">kcal</p>
-      </div>
+    <View style={styles.container}>
+      <Text style={styles.recipeName}>{data.recipeName}</Text>
+      
+      <View style={styles.calorieSection}>
+        <Text style={styles.calorieLabel}>Estimated Calories</Text>
+        <Text style={styles.calorieValue}>{data.totalCalories}</Text>
+        <Text style={styles.calorieUnit}>kcal</Text>
+      </View>
 
-      <div className="my-6 flex justify-around text-center p-4 bg-slate-900/50 rounded-lg">
-        <div>
-            <p className="text-sm sm:text-base text-slate-400">Protein</p>
-            <p className="text-xl sm:text-2xl font-bold text-white">{data.protein}g</p>
-        </div>
-        <div>
-            <p className="text-sm sm:text-base text-slate-400">Carbs</p>
-            <p className="text-xl sm:text-2xl font-bold text-white">{data.carbs}g</p>
-        </div>
-        <div>
-            <p className="text-sm sm:text-base text-slate-400">Fats</p>
-            <p className="text-xl sm:text-2xl font-bold text-white">{data.fats}g</p>
-        </div>
-      </div>
+      <View style={styles.macroContainer}>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroLabel}>Protein</Text>
+          <Text style={styles.macroValue}>{data.protein}g</Text>
+        </View>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroLabel}>Carbs</Text>
+          <Text style={styles.macroValue}>{data.carbs}g</Text>
+        </View>
+        <View style={styles.macroItem}>
+          <Text style={styles.macroLabel}>Fats</Text>
+          <Text style={styles.macroValue}>{data.fats}g</Text>
+        </View>
+      </View>
 
-      <div className="border-t border-slate-700 pt-6">
-        <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold text-slate-200">
-            Nutritional Breakdown by Ingredient
-            </h3>
-            {!isEditing && (
-                <button 
-                    onClick={() => setIsEditing(true)}
-                    className="bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors"
+      <View style={styles.ingredientsSection}>
+        <View style={styles.ingredientsHeader}>
+          <Text style={styles.ingredientsTitle}>Ingredients Breakdown</Text>
+          {!isEditing && (
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => setIsEditing(true)}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <ScrollView style={styles.ingredientsList} nestedScrollEnabled>
+          {displayIngredients.map((ingredient, index) => (
+            <View key={index} style={styles.ingredientRow}>
+              <View style={styles.ingredientInfo}>
+                <Text style={styles.ingredientName}>{ingredient.name}</Text>
+                <Text style={styles.ingredientQuantity}>{ingredient.quantity}</Text>
+              </View>
+              <View style={styles.ingredientNutrition}>
+                <Text style={styles.nutritionText}>{ingredient.calories} cal</Text>
+                <Text style={styles.nutritionText}>P: {ingredient.protein}g</Text>
+                <Text style={styles.nutritionText}>C: {ingredient.carbs}g</Text>
+                <Text style={styles.nutritionText}>F: {ingredient.fats}g</Text>
+              </View>
+              {isEditing && (
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveIngredient(index)}
                 >
-                    Edit Ingredients
-                </button>
-            )}
-        </div>
-        <div className="overflow-x-auto rounded-lg">
-          <table className="w-full text-sm text-left text-slate-400">
-            <thead className="text-xs text-slate-300 uppercase bg-slate-700/50">
-              <tr>
-                <th scope="col" className="px-4 py-3">Ingredient</th>
-                <th scope="col" className="px-4 py-3">Quantity</th>
-                <th scope="col" className="px-4 py-3 text-right">Calories</th>
-                <th scope="col" className="px-4 py-3 text-right">Protein (g)</th>
-                <th scope="col" className="px-4 py-3 text-right">Carbs (g)</th>
-                <th scope="col" className="px-4 py-3 text-right">Fats (g)</th>
-                {isEditing && <th scope="col" className="px-4 py-3 text-right">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {displayIngredients.map((ingredient, index) => {
-                const isCurrentlyEditingQty = editingQuantityIndex === index;
-                return (
-                  <tr key={index} className={`bg-slate-800 border-b border-slate-700 ${!isCurrentlyEditingQty && 'hover:bg-slate-700/50'}`}>
-                    <th scope="row" className="px-4 py-4 font-medium text-slate-100 whitespace-nowrap">
-                      {ingredient.name}
-                    </th>
-                    <td className="px-4 py-4">
-                      {isCurrentlyEditingQty ? (
-                        <input
-                          type="text"
-                          value={newQuantityValue}
-                          onChange={(e) => setNewQuantityValue(e.target.value)}
-                          className="w-full bg-slate-700 border border-slate-600 rounded-md p-1 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                          disabled={isUpdatingQuantity}
-                          aria-label={`Edit quantity for ${ingredient.name}`}
-                        />
-                      ) : (
-                        ingredient.quantity
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-right">{ingredient.calories}</td>
-                    <td className="px-4 py-4 text-right">{ingredient.protein}</td>
-                    <td className="px-4 py-4 text-right">{ingredient.carbs}</td>
-                    <td className="px-4 py-4 text-right">{ingredient.fats}</td>
-                    {isEditing && (
-                      <td className="px-4 py-4 text-right whitespace-nowrap">
-                        {isCurrentlyEditingQty ? (
-                          <>
-                            <button
-                              onClick={() => handleUpdateQuantity(index)}
-                              className="text-green-400 hover:text-green-300 font-semibold disabled:text-slate-500 disabled:cursor-wait"
-                              disabled={isUpdatingQuantity}
-                            >
-                              {isUpdatingQuantity ? '...' : 'Update'}
-                            </button>
-                            <button
-                              onClick={handleCancelEditQuantity}
-                              className="text-slate-400 hover:text-slate-300 font-semibold ml-3"
-                              disabled={isUpdatingQuantity}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => handleEditQuantityClick(index)} className="text-cyan-400 hover:text-cyan-300 font-semibold">Edit Qty</button>
-                            <button onClick={() => handleRemoveIngredient(index)} className="text-red-400 hover:text-red-300 font-semibold ml-3">Remove</button>
-                          </>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        
-        {isEditing && (
-            <div className="mt-6">
-                <h4 className="text-lg font-semibold text-slate-200 mb-3">Add Ingredient</h4>
-                 <div className="bg-slate-900/50 p-4 rounded-lg">
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                        <div className="col-span-1">
-                            <label htmlFor="quantity" className="block text-xs font-medium text-slate-400 mb-1">Quantity</label>
-                            <input 
-                                type="text" 
-                                name="quantity" 
-                                placeholder="e.g., 1 cup"
-                                value={newIngredient.quantity} 
-                                onChange={handleNewIngredientTextChange} 
-                                className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                            />
-                        </div>
-                        <div className="col-span-1 sm:col-span-2">
-                            <label htmlFor="name" className="block text-xs font-medium text-slate-400 mb-1">Ingredient Name</label>
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    name="name" 
-                                    value={newIngredient.name} 
-                                    onChange={handleNameChange} 
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500"
-                                    autoComplete="off"
-                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} // Delay to allow click
-                                />
-                                {showSuggestions && (
-                                    <ul className="absolute z-10 w-full bg-slate-600 border border-slate-500 rounded-md mt-1 max-h-40 overflow-y-auto shadow-lg">
-                                        {suggestions.map((suggestion, index) => (
-                                            <li
-                                                key={index}
-                                                className="px-3 py-2 cursor-pointer hover:bg-slate-700 text-slate-200"
-                                                onMouseDown={(e) => e.preventDefault()} // Prevent blur on click
-                                                onClick={() => handleSuggestionClick(suggestion)}
-                                            >
-                                                {suggestion}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        </div>
-                        <div>
-                             <button onClick={handleAnalyzeIngredient} disabled={isAnalyzingIngredient} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-slate-600 disabled:cursor-wait">
-                                {isAnalyzingIngredient ? 'Analyzing...' : 'Analyze'}
-                            </button>
-                        </div>
-                    </div>
+                  <Text style={styles.removeButtonText}>Remove</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+        </ScrollView>
 
-                    {ingredientError && <p className="text-red-400 text-xs mt-2">{ingredientError}</p>}
-                    
-                    <form onSubmit={handleAddIngredient} className="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end mt-4">
-                        <div className="col-span-2 sm:col-span-1">
-                            <label htmlFor="calories" className="block text-xs font-medium text-slate-400 mb-1">Calories</label>
-                            <input type="number" name="calories" value={newIngredient.calories} onChange={handleNewIngredientNumberChange} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500"/>
-                        </div>
-                        <div>
-                            <label htmlFor="protein" className="block text-xs font-medium text-slate-400 mb-1">Protein</label>
-                            <input type="number" name="protein" value={newIngredient.protein} onChange={handleNewIngredientNumberChange} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500"/>
-                        </div>
-                        <div>
-                            <label htmlFor="carbs" className="block text-xs font-medium text-slate-400 mb-1">Carbs</label>
-                            <input type="number" name="carbs" value={newIngredient.carbs} onChange={handleNewIngredientNumberChange} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500"/>
-                        </div>
-                        <div>
-                            <label htmlFor="fats" className="block text-xs font-medium text-slate-400 mb-1">Fats</label>
-                            <input type="number" name="fats" value={newIngredient.fats} onChange={handleNewIngredientNumberChange} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500"/>
-                        </div>
-                         <div className="col-span-2 sm:col-span-1">
-                             <button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Add</button>
-                        </div>
-                    </form>
-                 </div>
-                <div className="mt-6 flex justify-end gap-4">
-                    <button onClick={handleCancel} className="bg-slate-600 hover:bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Cancel</button>
-                    <button onClick={handleSaveChanges} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Save Changes</button>
-                </div>
-            </div>
+        {isEditing && (
+          <View style={styles.addIngredientSection}>
+            <Text style={styles.addIngredientTitle}>Add Ingredient</Text>
+            
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Quantity (e.g., 1 cup)"
+                placeholderTextColor="#64748b"
+                value={newIngredient.quantity}
+                onChangeText={(text) => setNewIngredient(prev => ({ ...prev, quantity: text }))}
+              />
+              <TextInput
+                style={[styles.input, { flex: 2 }]}
+                placeholder="Ingredient name"
+                placeholderTextColor="#64748b"
+                value={newIngredient.name}
+                onChangeText={(text) => setNewIngredient(prev => ({ ...prev, name: text }))}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.analyzeIngredientButton, isAnalyzingIngredient && styles.disabledButton]}
+              onPress={handleAnalyzeIngredient}
+              disabled={isAnalyzingIngredient}
+            >
+              <Text style={styles.analyzeIngredientButtonText}>
+                {isAnalyzingIngredient ? 'Analyzing...' : 'Analyze'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.nutritionInputRow}>
+              <TextInput
+                style={styles.nutritionInput}
+                placeholder="Cal"
+                placeholderTextColor="#64748b"
+                value={newIngredient.calories.toString()}
+                onChangeText={(text) => setNewIngredient(prev => ({ ...prev, calories: Number(text) || 0 }))}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.nutritionInput}
+                placeholder="Protein"
+                placeholderTextColor="#64748b"
+                value={newIngredient.protein.toString()}
+                onChangeText={(text) => setNewIngredient(prev => ({ ...prev, protein: Number(text) || 0 }))}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.nutritionInput}
+                placeholder="Carbs"
+                placeholderTextColor="#64748b"
+                value={newIngredient.carbs.toString()}
+                onChangeText={(text) => setNewIngredient(prev => ({ ...prev, carbs: Number(text) || 0 }))}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.nutritionInput}
+                placeholder="Fats"
+                placeholderTextColor="#64748b"
+                value={newIngredient.fats.toString()}
+                onChangeText={(text) => setNewIngredient(prev => ({ ...prev, fats: Number(text) || 0 }))}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleAddIngredient}
+            >
+              <Text style={styles.addButtonText}>Add Ingredient</Text>
+            </TouchableOpacity>
+
+            <View style={styles.editActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
-      </div>
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out forwards;
-        }
-      `}</style>
-    </div>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+  },
+  recipeName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#22d3ee',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  calorieSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  calorieLabel: {
+    fontSize: 16,
+    color: '#94a3b8',
+    marginBottom: 8,
+  },
+  calorieValue: {
+    fontSize: 56,
+    fontWeight: '800',
+    color: 'white',
+    lineHeight: 64,
+  },
+  calorieUnit: {
+    fontSize: 16,
+    color: '#94a3b8',
+  },
+  macroContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  macroItem: {
+    alignItems: 'center',
+  },
+  macroLabel: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginBottom: 4,
+  },
+  macroValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  ingredientsSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+    paddingTop: 24,
+  },
+  ingredientsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  ingredientsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#cbd5e1',
+  },
+  editButton: {
+    backgroundColor: '#06b6d4',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  editButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  ingredientsList: {
+    maxHeight: 300,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  ingredientInfo: {
+    flex: 1,
+  },
+  ingredientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#f1f5f9',
+    marginBottom: 2,
+  },
+  ingredientQuantity: {
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+  ingredientNutrition: {
+    alignItems: 'flex-end',
+  },
+  nutritionText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginBottom: 1,
+  },
+  removeButton: {
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  removeButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addIngredientSection: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+  },
+  addIngredientTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#cbd5e1',
+    marginBottom: 16,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  input: {
+    backgroundColor: '#374151',
+    borderRadius: 8,
+    padding: 12,
+    color: 'white',
+    fontSize: 16,
+  },
+  analyzeIngredientButton: {
+    backgroundColor: '#14b8a6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  analyzeIngredientButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  nutritionInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  nutritionInput: {
+    flex: 1,
+    backgroundColor: '#374151',
+    borderRadius: 8,
+    padding: 12,
+    color: 'white',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  addButton: {
+    backgroundColor: '#06b6d4',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#475569',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#06b6d4',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: '#374151',
+  },
+});

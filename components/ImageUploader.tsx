@@ -1,106 +1,207 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 interface ImageUploaderProps {
-  onImageUpload: (file: File) => void;
+  onImageUpload: (imageData: { uri: string; base64: string; mimeType: string; }) => void;
   onAnalyze: () => void;
   onClear: () => void;
   hasImage: boolean;
   isLoading: boolean;
+  imageUri?: string;
 }
 
-const UploadIcon: React.FC = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-  </svg>
-);
+export const ImageUploader: React.FC<ImageUploaderProps> = ({ 
+  onImageUpload, 
+  onAnalyze, 
+  onClear, 
+  hasImage, 
+  isLoading,
+  imageUri 
+}) => {
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
 
-export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, onAnalyze, onClear, hasImage, isLoading }) => {
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      base64: true,
+    });
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      onImageUpload(file);
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        onImageUpload({
+          uri: asset.uri,
+          base64: asset.base64,
+          mimeType: asset.mimeType || 'image/jpeg',
+        });
+      }
     }
   };
 
-  const handleClearClick = () => {
-    setImagePreview(null);
-    if(fileInputRef.current) {
-        fileInputRef.current.value = "";
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Sorry, we need camera permissions to make this work!');
+      return;
     }
-    onClear();
-  }
 
-  const handleDrop = (event: React.DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      onImageUpload(file);
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        onImageUpload({
+          uri: asset.uri,
+          base64: asset.base64,
+          mimeType: asset.mimeType || 'image/jpeg',
+        });
+      }
     }
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const showImagePicker = () => {
+    Alert.alert(
+      'Select Image',
+      'Choose how you want to select an image',
+      [
+        { text: 'Camera', onPress: takePhoto },
+        { text: 'Gallery', onPress: pickImage },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   return (
-    <div className="w-full max-w-xl bg-slate-800 rounded-2xl shadow-xl p-6 transition-all duration-300">
-      <input
-        type="file"
-        id="imageUpload"
-        ref={fileInputRef}
-        className="hidden"
-        accept="image/png, image/jpeg, image/webp"
-        onChange={handleFileChange}
-        disabled={isLoading}
-      />
-      {!imagePreview ? (
-        <label
-          htmlFor="imageUpload"
-          className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors"
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
+    <View style={styles.container}>
+      {!imageUri ? (
+        <TouchableOpacity 
+          style={styles.uploadArea} 
+          onPress={showImagePicker}
+          disabled={isLoading}
         >
-          <UploadIcon />
-          <p className="mt-2 text-lg font-semibold text-slate-300">Click to upload or drag & drop</p>
-          <p className="text-sm text-slate-500">PNG, JPG, or WEBP</p>
-        </label>
+          <Text style={styles.uploadIcon}>📷</Text>
+          <Text style={styles.uploadText}>Tap to upload or take photo</Text>
+          <Text style={styles.uploadSubtext}>PNG, JPG, or WEBP</Text>
+        </TouchableOpacity>
       ) : (
-        <div className="w-full h-64 relative group">
-          <img src={imagePreview} alt="Food preview" className="w-full h-full object-contain rounded-lg" />
-        </div>
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: imageUri }} style={styles.image} />
+        </View>
       )}
 
-      <div className="mt-6 flex flex-col sm:flex-row gap-4">
-        <button
-          onClick={onAnalyze}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.analyzeButton, (!hasImage || isLoading) && styles.disabledButton]}
+          onPress={onAnalyze}
           disabled={!hasImage || isLoading}
-          className="flex-grow w-full text-lg font-semibold bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg transition-all duration-300 shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-cyan-500"
         >
-          {isLoading ? 'Analyzing...' : 'Estimate Calories'}
-        </button>
-        <button
-          onClick={handleClearClick}
+          <Text style={[styles.analyzeButtonText, (!hasImage || isLoading) && styles.disabledButtonText]}>
+            {isLoading ? 'Analyzing...' : 'Estimate Calories'}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.clearButton, (!hasImage || isLoading) && styles.disabledButton]}
+          onPress={onClear}
           disabled={!hasImage || isLoading}
-          className="w-full sm:w-auto bg-slate-600 hover:bg-slate-700 disabled:bg-slate-700/50 disabled:text-slate-500 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg transition-all duration-300"
         >
-          Clear
-        </button>
-      </div>
-    </div>
+          <Text style={[styles.clearButtonText, (!hasImage || isLoading) && styles.disabledButtonText]}>
+            Clear
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+  },
+  uploadArea: {
+    height: 200,
+    borderWidth: 2,
+    borderColor: '#475569',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#334155',
+  },
+  uploadIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  uploadText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#cbd5e1',
+    marginBottom: 4,
+  },
+  uploadSubtext: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  imageContainer: {
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginTop: 24,
+    gap: 16,
+  },
+  analyzeButton: {
+    flex: 1,
+    backgroundColor: '#06b6d4',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  analyzeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  clearButton: {
+    backgroundColor: '#475569',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: '#374151',
+  },
+  disabledButtonText: {
+    color: '#6b7280',
+  },
+});
