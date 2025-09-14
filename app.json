@@ -42,7 +42,8 @@
           "photosPermission": "The app accesses your photos to let you select food images for calorie estimation.",
           "cameraPermission": "The app accesses your camera to let you take photos of food for calorie estimation."
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }
